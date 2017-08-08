@@ -11,7 +11,7 @@
     "papers",
     "passport",
     "strategy",
-    "koa",
+    "koa2",
     "promise",
     "authentication",
     "auth"
@@ -27,7 +27,7 @@
     "co-mocha": "^1.1.3",
     "express": "^4.14.0",
     "istanbul": "^1.1.0-alpha.1",
-    "koa": "^1.2.4",
+    "koa": "2.3.0",
     "koa-router": "^5.4.0",
     "mocha": "^3.0.2",
     "nodemon": "^1.10.2",
@@ -38,7 +38,6 @@
     "supertest-koa-agent": "^0.3.0"
   },
   "dependencies": {
-    "co": "^4.6.0"
   },
   "babel": {
     "presets": [

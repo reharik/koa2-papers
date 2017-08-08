@@ -1,31 +1,30 @@
 const http = require('_http_server');
-const co = require('co');
 const handleFailurePostIteration = require('./handleFailurePostIteration');
 const handleSuccess = require('./handleSuccess');
 const handleError = require('./handleError');
 const standardizeErrors = require('./standardizeErrors');
 const checkSessionForAuth = require('./checkSessionForAuth');
 
-
 module.exports = (papers) => {
 
-  return function *(next) {
+  return async function (ctx, next) {
     /********* check session for auth *************/
-    const checkSession = (ctx, papers) =>  {
-      return co(checkSessionForAuth(papers, ctx))
-        .catch(ex => {
+    const checkSession = async (ctx, papers) =>  {
+      try {
+        return await checkSessionForAuth(papers, ctx);
+      } catch(ex) {
         console.log('==========ex=========');
         console.log(ex);
         console.log('==========END ex=========');
         ctx.response.status = 500;
         ctx.response.body = `${http.STATUS_CODES[500]} \n ${ex.message} \n ${ex}`;
-      })
+      }
     };
 
     /********* iterate strategies *************/
-    const iterateStrategies = (ctx, papers) => {
-      return co(function *iterateStrategies() {
-        let failures = [];
+    const iterateStrategies = async (ctx, papers) => {
+      try {
+      let failures = [];
         for (let strategy of papers.functions.strategies) {
 
           if (!strategy) {
@@ -33,7 +32,7 @@ module.exports = (papers) => {
           }
 
           const authenticate = strategy.authenticate(ctx, papers);
-          const stratResult = authenticate && typeof authenticate.then === 'function' ? yield authenticate : authenticate;
+          const stratResult = authenticate && typeof authenticate.then === 'function' ? await authenticate : authenticate;
 
           if (!stratResult || !stratResult.type) {
             continue
@@ -55,42 +54,40 @@ module.exports = (papers) => {
             }
             case 'success':
             {
-              return yield handleSuccess(stratResult, ctx, papers);
+              return await handleSuccess(stratResult, ctx, papers);
             }
           }
         }
         return handleFailurePostIteration(failures, ctx, papers);
-      }).catch(ex => {
+      } catch(ex) {
         console.log('==========ex=========');
         console.log(ex);
         console.log('==========END ex=========');
         ctx.status = 500;
         ctx.body = `${http.STATUS_CODES[500]} \n ${ex.message} \n ${ex}`;
-      });
+      }
     };
 
-    let ctx = this;
-    
     /********* add convenience methods to req *************/
     ctx.logOut = papers.functions.logOut(ctx, papers.options.userProperty, papers.options.key);
     ctx.isAuthenticated = papers.functions.isAuthenticated(ctx);
     
     /****** whiteList ********/
     if(papers.options.whiteList.some(x=> x.url === ctx.request.url && (!!x.method ? x.method === ctx.request.method : true))){
-      return yield next;
+      return await next();
     }
     
-    const hasSession = yield checkSession(ctx, papers);
+    const hasSession = await checkSession(ctx, papers);
     // this is strange logic but necessary to handle hasSession throwing
     let result = hasSession && !hasSession.isLoggedIn
-      ? yield iterateStrategies(ctx, papers)
+      ? await iterateStrategies(ctx, papers)
       : {type: 'session'};
 
     switch (result.type) {
       case 'customHandler':
       {
         if(papers.functions.customHandler.constructor.name === 'GeneratorFunction') {
-          yield co(papers.functions.customHandler(ctx, next, result.value));
+          await papers.functions.customHandler(ctx, next, result.value);
           return;
         }
         papers.functions.customHandler(ctx, next, result.value);
@@ -110,7 +107,7 @@ module.exports = (papers) => {
       case 'session':
       case 'success':
       {
-        yield next;
+        await next();
         break;
       }
       case 'redirect': {

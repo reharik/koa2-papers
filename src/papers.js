@@ -1,8 +1,7 @@
-const co = require('co');
-var createAuthenticationMiddleware = require('./authenticationMiddleware');
+const createAuthenticationMiddleware = require('./authenticationMiddleware');
 
 module.exports = function() {
-  const logIn = function *(ctx, user, papers) {
+  const logIn = async function (ctx, user, papers) {
     ctx.state[papers.options.userProperty] = user;
 
     if(!papers.options.useSession || !ctx.session){
@@ -10,7 +9,7 @@ module.exports = function() {
     }
 
     ctx.session[papers.options.key] = {};
-    ctx.session[papers.options.key].user = yield papers.functions.serializeUser(user, papers);
+    ctx.session[papers.options.key].user = await papers.functions.serializeUser(user, papers);
   };
 
   const logOut = function (ctx, userProperty, key) {
@@ -31,47 +30,33 @@ module.exports = function() {
     };
   };
 
-  const serializeUser = function (user, papers) {
+  const serializeUser = async function (user, papers) {
     // private implementation that traverses the chain of serializers, attempting
     // to serialize a user
-    return co(function *iterateStrategies() {
-      for (strategy of papers.functions.serializers) {
-        var result = strategy(user);
-        if (result) {
-          const user = yield result;
-          if (user !== 'pass') {
-            return user;
-          }
-        }
+    for (strategy of papers.functions.serializers) {
+      const serializedUser = await strategy(user);
+      if (serializedUser && serializedUser !== 'pass') {
+          return serializedUser;
       }
-    }).catch(ex => {
-      throw ex;
-    });
+    }
   };
 
-  const deserializeUser = function (user, papers) {
-    return co(function *iterateStrategies() {
-      for (strategy of papers.functions.deserializers) {
-        if (!strategy) {
-          throw new Error('Failed to serialize user into session');
-        }
-        var result = strategy(user);
-        if (result) {
-          const user = yield result;
-          if (user !== 'pass') {
-            return user;
-          }
-        }
+  const deserializeUser = async function (user, papers) {
+    for (strategy of papers.functions.deserializers) {
+      if (!strategy) {
+        throw new Error('Failed to serialize user into session');
       }
-    }).catch(e => {
-      throw(e);
-    })
+      const deserializedUser = await strategy(user);
+      if (deserializedUser && deserializedUser !== 'pass') {
+        return deserializedUser;
+      }
+    }
   };
 
   const transformAuthInfo = function (info, papers) {
     for (let i = 0; papers.functions.infoTransformers; i++) {
 
-      var layer = papers.functions.infoTransformers[i];
+      const layer = papers.functions.infoTransformers[i];
       if (!layer) {
 
         // if no transformers are registered (or they all pass), the default

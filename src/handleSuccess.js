@@ -1,6 +1,5 @@
-const co = require('co');
 
-module.exports = function *(stratResult, ctx, papers) {
+module.exports = async function (stratResult, ctx, papers) {
   ctx.status = 200;
   if (papers.functions.customHandler) {
     return {type: 'customHandler', result: 'success', value: stratResult};
@@ -8,7 +7,7 @@ module.exports = function *(stratResult, ctx, papers) {
 
   // /********* successFlash *************/
   // if (clientOptions.successFlash) {
-  //   var flash = {
+  //   const flash = {
   //     type: clientOptions.successFlash.type || info.type || 'success',
   //     message: clientOptions.successFlash.message || info.message || info || 'success'
   //   };
@@ -28,9 +27,7 @@ module.exports = function *(stratResult, ctx, papers) {
   //   return {type: 'success'};
   // }
 
-  yield co(function *logInGen(){
-    yield papers.functions.logIn(ctx, stratResult.details.user, papers);
-  });
+  return await papers.functions.logIn(ctx, stratResult.details.user, papers);
 
   // /********* authInfo *************/
   // if (clientOptions.authInfo !== false) {
@@ -38,7 +35,7 @@ module.exports = function *(stratResult, ctx, papers) {
   // }
 
   /********* redirect *************/
-  var redirectUrl = ctx.session && ctx.session.returnTo ? ctx.session.returnTo : papers.options.successRedirect;
+  const redirectUrl = ctx.session && ctx.session.returnTo ? ctx.session.returnTo : papers.options.successRedirect;
   if (ctx.session) {
     delete ctx.session.returnTo;
   }
